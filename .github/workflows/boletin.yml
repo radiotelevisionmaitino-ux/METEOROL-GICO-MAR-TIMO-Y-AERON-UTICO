@@ -1,0 +1,45 @@
+name: Generar Boletin Radio Maitino MP3
+
+on:
+  schedule:
+    # Se ejecuta automáticamente cada 30 minutos
+    - cron: '*/30 * * * *'
+  push:
+    branches: [ main ]
+  workflow_dispatch: # Permite ejecutar el boletín manualmente desde GitHub
+
+permissions:
+  contents: write
+
+jobs:
+  generar-boletin:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar Código del Repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Entorno Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Instalar FFmpeg (Necesario para Pydub y mezcla de MP3)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Instalar Dependencias de Python
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Ejecutar Generación de Boletín
+        run: python main.py
+
+      - name: Publicar Boletín Actualizado en el Repositorio
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add boletin_maitino_listo.mp3
+          git commit -m "bot: actualización automática del boletín meteorológico" || exit 0
+          git push
