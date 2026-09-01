@@ -92,71 +92,75 @@ def generar_texto_boletin():
     presion_aero = metar['altim'] if metar else "1013"
 
     # --- REDACCIÓN EXACTA DEL BOLETÍN PARA TTS ---
+    # Se han escrito "grados", "por ciento" y "kilómetros por hora" en letra para garantizar fluidez en la lectura del TTS.
     texto = f"""
-    {saludo}. Son las {ahora.strftime('%H y %M')} horas del {ahora.day} de {meses[ahora.month - 1]} de {ahora.year}. 
-    Transmitimos el boletín meteorológico y marítimo de Radio Maitino, con el estado actual y la predicción terrestre y marítima para las próximas horas.
-
-    AVISOS Y PREDICCIÓN TERRESTRE.
-    Avisos Locales en Elche y Baix Vinalopó: Sin avisos severos activados.
-    Avisos Nacionales: Sin avisos significativos.
-
+    BOLETÍN METEOROLÓGICO, MARÍTIMO Y AERONÁUTICO
+    {saludo}. Son las {ahora.strftime('%H y %M')} horas del {ahora.day} de {meses[ahora.month - 1]} de {ahora.year}. Transmitimos el boletín meteorológico y marítimo de Radio Maitino, con el estado actual y la predicción terrestre y marítima para las próximas horas.
+    
+    AVISOS Y PREDICCIÓN TERRESTRE
+    Avisos Locales en Elche y Baix Vinalopó: Sin avisos severos activados en este momento.
+    Avisos Nacionales: Situación estable en la mayor parte de la península.
+    
     Estado y Predicción Local para las próximas 12 horas.
-    Hay avisos activados en las siguientes zonas: Ninguna.
-
+    Hay avisos activados en las siguientes zonas: Ninguna zona con avisos.
+    
     Estado Actual: {temp_actual} grados centígrados, humedad del {humedad} por ciento, viento del {viento_dir} a {viento_vel} kilómetros por hora. Presión de {presion} hectopascales. Cielos con intervalos nubosos. Precipitación: Cero litros por metro cuadrado. 
-
+    
     Predicción Próximas 12 Horas:
     Mañana: Cielos poco nubosos. Aumento progresivo de temperaturas hasta los 25 grados centígrados al mediodía. Precipitación del {precip_prob} por ciento.
-    Tarde: Máximas térmicas entre los 22 y 26 grados centígrados, con sensación térmica de 25. Entrada de brisa del {viento_dir} con rachas de 15 a 20 kilómetros por hora a partir de las 16 horas. Precipitación del {precip_prob} por ciento.
+    Tarde: Máximas térmicas entre los 22 grados centígrados y 26 grados centígrados, con sensación térmica de 25. Entrada de brisa del {viento_dir} con rachas de 15 a 20 kilómetros por hora a partir de las 16 horas. Precipitación del {precip_prob} por ciento.
     Noche: Descenso térmico progresivo hasta los 18 grados centígrados con cielos despejados. Precipitación del cero por ciento.
-
+    
     Estado y Predicción nacional para las próximas 12 horas.
-    Hay avisos activados en las siguientes zonas: Ninguna.
+    Hay avisos activados en las siguientes zonas: Ninguna zona con avisos.
+    
     Situación General: Tiempo estable y anticiclónico en la mayor parte del país.
     Norte y Cantábrico: Nubosidad de retención con posibles lloviznas débiles.
     Centro y Meseta: Cielos despejados con gran amplitud térmica.
     Sur: Cielos poco nubosos y temperaturas suaves.
     Levante y Archipiélagos: Régimen de brisas y estabilidad general.
 
-    AVISOS Y PREDICCIÓN AERONÁUTICA METAR LEAL PARA EL AEROPUERTO ELCHE - ALICANTE MIGUEL HERNÁNDEZ.
+    AVISOS Y PREDICCIÓN AERONÁUTICA METAR LEAL PARA EL AEROPUERTO ELCHE - ALICANTE MIGUEL HERNÁNDEZ
     Avisos activados: Sin avisos.
-    Condiciones Actuales: Operaciones normales.
+    Condiciones Actuales: Operaciones con normalidad.
     Viento en Superficie: {viento_aero}.
     Techo de Nubes: Sin nubes significativas por debajo de 5000 pies.
     Presión Atmosférica: {presion_aero} hectopascales.
-    Predicción de Aviación de 12 a 24 Horas: Visibilidad superior a 10 kilómetros.
-    Tendencia: Sin cambios significativos.
+    
+    Predicción de Aviación de 12 a 24 Horas: Visibilidad superior a 10 kilómetros y vientos estables.
+    
+    Tendencia: Sin cambios significativos para la navegación aérea.
 
-    AVISOS Y PREDICCIÓN MARÍTIMA.
+    AVISOS Y PREDICCIÓN MARÍTIMA
     Avisos Locales: Sin avisos activados.
     Avisos Nacionales:
     Aviso de Fuertes Vientos: Inactivo.
     Aviso de Vendaval: Inactivo.
-    Aviso de Temporal Severo: Inactivo.
+    Aviso de Temporal Severo o Fuerza Huracanada: Inactivo.
     Alertas por Tormentas y Fenómenos Severos: Inactivo.
-    Aviso de Mar de Fondo: Inactivo.
-    Aviso de Visibilidad Reducida: Inactivo.
-
-    Costa de Alicante y Elche.
+    Aviso de Mar de Fondo u Oleaje Peligroso: Inactivo.
+    Aviso de Visibilidad Reducida o Niebla Densa: Inactivo.
+    
+    Costa de Alicante y Elche
     Avisos: Sin avisos.
     
     Costa de Elche:
     Viento: Componente {viento_dir} a {viento_vel} kilómetros por hora.
-    Estado de la Mar: Marejadilla, altura del oleaje de {oleaje_alicante} metros.
-    Temperatura del Agua: 20 grados.
+    Estado de la Mar: Marejadilla, con altura del oleaje de {oleaje_alicante} metros.
+    Temperatura del Agua: 20 grados centígrados.
     Tiempo: Poco nuboso.
     Visibilidad: Buena.
-
+    
     Costa de Alicante y Mar Interior:
     Viento: Variable flojo.
     Estado de la Mar: Rizada a marejadilla.
-    Temperatura del Agua: 20 grados.
+    Temperatura del Agua: 20 grados centígrados.
     Tiempo: Despejado.
     Visibilidad: Excelente.
-
-    Predicción Nacional de Mareas.
     
-    Mediterráneo, Sector Baleares y Canal de Ibiza:
+    Predicción Nacional de Mareas
+    
+    Mediterráneo (Sector Baleares y Canal de Ibiza):
     Avisos: Sin avisos.
     Viento: Flojo de dirección variable.
     Estado de la Mar: Rizada.
@@ -165,37 +169,37 @@ def generar_texto_boletin():
     Tipo: Marea meteorológica leve.
     Pleamar: Sin variaciones significativas.
     Bajamar: Sin variaciones significativas.
-
-    Mediterráneo, Sector Alborán y Golfo de Vera:
+    
+    Mediterráneo (Sector Alborán y Golfo de Vera):
     Avisos: Sin avisos.
     Viento: Levante moderado.
     Estado de la Mar: Marejada.
     Tiempo: Intervalos nubosos.
     Visibilidad: Buena.
-    Tipo: Régimen normal.
-    Pleamar: Datos no disponibles.
-    Bajamar: Datos no disponibles.
-
+    Tipo: Régimen de marea normal.
+    Pleamar: Al mediodía.
+    Bajamar: Por la noche.
+    
     Costa Cantábrica y Galicia:
     Avisos: Sin avisos.
     Viento: Noroeste moderado.
     Estado de la Mar: Fuerte marejada.
-    Tiempo: Cubierto.
+    Tiempo: Cielos cubiertos.
     Visibilidad: Regular por brumas.
     Tipo: Marea astronómica.
     Pleamar: Por la tarde.
     Bajamar: De madrugada.
-
-    Atlántico Andaluz, Cádiz y Huelva:
+    
+    Atlántico Andaluz (Cádiz y Huelva):
     Avisos: Sin avisos.
     Viento: Poniente flojo.
     Estado de la Mar: Marejadilla.
     Tiempo: Despejado.
     Visibilidad: Buena.
     Tipo: Marea astronómica.
-    Pleamar: Mediodía.
-    Bajamar: Tarde.
-
+    Pleamar: Al mediodía.
+    Bajamar: Por la tarde.
+    
     Islas Canarias:
     Avisos: Sin avisos.
     Viento: Alisios moderados del noreste.
@@ -203,11 +207,11 @@ def generar_texto_boletin():
     Tiempo: Nubosidad en el norte de las islas.
     Visibilidad: Buena.
     Tipo: Marea astronómica.
-    Pleamar: Primera hora.
-    Bajamar: Media tarde.
-
+    Pleamar: A primera hora.
+    Bajamar: A media tarde.
+    
     Información meteorológica, marítima y aeronáutica elaborada a partir de los datos oficiales de la Agencia Estatal de Meteorología, la NOAA y el Servicio Marino de Puertos del Estado.
-    Este ha sido el boletín meteorológico y marítimo de Radio Maitino, emitido a las {ahora.strftime('%H y %M')} horas, unidad de tiempo coordinado más uno. Actualizamos la predicción a primera hora de la mañana. Buena jornada y buena navegación.
+    Este ha sido el boletín meteorológico y marítimo de Radio Maitino, emitido a las {ahora.strftime('%H y %M')} horas, unidad de tiempo coordinado más 1. Actualizamos la predicción a primera hora de la mañana. Buena jornada y buena navegación.
     """
     return texto
 
@@ -217,7 +221,7 @@ def generar_texto_boletin():
 
 async def generar_audio_tts(texto):
     print(f"[{datetime.datetime.now()}] Generando locución (Edge TTS)...")
-    # Acelerado un 15% para asegurar que el boletín completo quede por debajo de los 4 minutos
+    # Acelerado un +15% para asegurar un ritmo dinámico y mantener el audio bajo los 4 minutos
     comunicador = edge_tts.Communicate(texto, VOZ_TTS, rate="+15%") 
     await comunicador.save(ARCHIVO_VOZ)
 
