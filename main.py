@@ -92,7 +92,6 @@ def generar_texto_boletin():
     presion_aero = metar['altim'] if metar else "1013"
 
     # --- REDACCIÓN EXACTA DEL BOLETÍN PARA TTS ---
-    # Se han escrito "grados", "por ciento" y "kilómetros por hora" en letra para garantizar fluidez en la lectura del TTS.
     texto = f"""
     BOLETÍN METEOROLÓGICO, MARÍTIMO Y AERONÁUTICO
     {saludo}. Son las {ahora.strftime('%H y %M')} horas del {ahora.day} de {meses[ahora.month - 1]} de {ahora.year}. Transmitimos el boletín meteorológico y marítimo de Radio Maitino, con el estado actual y la predicción terrestre y marítima para las próximas horas.
@@ -221,8 +220,9 @@ def generar_texto_boletin():
 
 async def generar_audio_tts(texto):
     print(f"[{datetime.datetime.now()}] Generando locución (Edge TTS)...")
-    # Acelerado un +15% para asegurar un ritmo dinámico y mantener el audio bajo los 4 minutos
-    comunicador = edge_tts.Communicate(texto, VOZ_TTS, rate="+15%") 
+    # Reducida la velocidad un 15% (-15%) para hablar más despacio 
+    # y así extender la duración del audio a cerca de 6 minutos de manera natural.
+    comunicador = edge_tts.Communicate(texto, VOZ_TTS, rate="-15%") 
     await comunicador.save(ARCHIVO_VOZ)
 
 def mezclar_audio_radio():
