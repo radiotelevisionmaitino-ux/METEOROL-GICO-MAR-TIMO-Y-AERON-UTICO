@@ -63,7 +63,6 @@ def direccion_viento_texto(grados):
 def generar_texto_boletin():
     ahora = datetime.datetime.now()
     
-    # Saludo según la hora
     if 6 <= ahora.hour < 14:
         saludo = "Buenos días"
     elif 14 <= ahora.hour < 21:
@@ -73,12 +72,10 @@ def generar_texto_boletin():
 
     meses = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
     
-    # --- LLAMADAS A APIS ---
     clima_elche = obtener_datos_clima(COORDS["elche"]["lat"], COORDS["elche"]["lon"])
     mar_alicante = obtener_datos_maritimos(COORDS["alicante_costa"]["lat"], COORDS["alicante_costa"]["lon"])
     metar = obtener_metar_leal()
 
-    # Extracción segura de datos
     temp_actual = clima_elche['current_weather']['temperature'] if clima_elche else "20"
     viento_vel = clima_elche['current_weather']['windspeed'] if clima_elche else "10"
     viento_dir = direccion_viento_texto(clima_elche['current_weather']['winddirection']) if clima_elche else "este"
@@ -87,11 +84,9 @@ def generar_texto_boletin():
     precip_prob = clima_elche['hourly']['precipitation_probability'][0] if clima_elche else "0"
     oleaje_alicante = mar_alicante['current']['wave_height'] if mar_alicante else "0.5"
     
-    # Datos METAR LEAL
     viento_aero = f"{metar['wdir']} grados a {metar['wspd']} nudos" if metar else "Variable a 5 nudos"
     presion_aero = metar['altim'] if metar else "1013"
 
-    # --- REDACCIÓN EXACTA DEL BOLETÍN PARA TTS ---
     texto = f"""
     BOLETÍN METEOROLÓGICO, MARÍTIMO Y AERONÁUTICO
     {saludo}. Son las {ahora.strftime('%H y %M')} horas del {ahora.day} de {meses[ahora.month - 1]} de {ahora.year}. Transmitimos el boletín meteorológico y marítimo de Radio Maitino, con el estado actual y la predicción terrestre y marítima para las próximas horas.
@@ -220,13 +215,12 @@ def generar_texto_boletin():
 
 async def generar_audio_tts(texto):
     print(f"[{datetime.datetime.now()}] Generando locución (Edge TTS)...")
-    # Reducida la velocidad un 15% (-15%) para hablar más despacio 
-    # y así extender la duración del audio a cerca de 6 minutos de manera natural.
+    # Voz ralentizada para mayor claridad, acercando la voz a los 4-5 minutos
     comunicador = edge_tts.Communicate(texto, VOZ_TTS, rate="-15%") 
     await comunicador.save(ARCHIVO_VOZ)
 
 def mezclar_audio_radio():
-    print(f"[{datetime.datetime.now()}] Mezclando audio con sintonía...")
+    print(f"[{datetime.datetime.now()}] Mezclando audio para 6 minutos exactos...")
     try:
         voz = AudioSegment.from_mp3(ARCHIVO_VOZ)
         
@@ -238,15 +232,25 @@ def mezclar_audio_radio():
         musica_fondo = AudioSegment.from_mp3(ARCHIVO_MUSICA)
         musica_fondo = musica_fondo - 15 
 
-        duracion_necesaria = len(voz) + 5000 
-        musica_loop = musica_fondo * (duracion_necesaria // len(musica_fondo) + 1)
-        musica_loop = musica_loop[:duracion_necesaria]
+        # === FORZAR EXACTAMENTE 6 MINUTOS (360,000 milisegundos) ===
+        duracion_exacta = 6 * 60 * 1000 
+        
+        # Repetir la música hasta cubrir los 6 minutos
+        musica_loop = musica_fondo * (duracion_exacta // len(musica_fondo) + 1)
+        musica_loop = musica_loop[:duracion_exacta]
 
+        # Mezclar: la música empieza sola 2 segundos, luego entra la voz
         mix_final = musica_loop.overlay(voz, position=2000)
-        mix_final = mix_final.fade_out(3000)
+
+        # Si por algún motivo la voz superara los 6 minutos (muy improbable), cortamos a 6 min exactos
+        if len(mix_final) > duracion_exacta:
+            mix_final = mix_final[:duracion_exacta]
+
+        # Fade out suave de 5 segundos al finalizar los 6 minutos
+        mix_final = mix_final.fade_out(5000)
 
         mix_final.export(ARCHIVO_AUDIO_FINAL, format="mp3", bitrate="192k")
-        print(f"[{datetime.datetime.now()}] Boletín completado con éxito: {ARCHIVO_AUDIO_FINAL}")
+        print(f"[{datetime.datetime.now()}] Boletín completado con éxito. Duración: 6 minutos exactos.")
         
     except Exception as e:
         print(f"Error en la producción de audio: {e}")
