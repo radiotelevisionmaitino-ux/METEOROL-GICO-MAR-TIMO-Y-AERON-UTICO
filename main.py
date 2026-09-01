@@ -1,5 +1,4 @@
 import requests
-import schedule
 import time
 import datetime
 import asyncio
@@ -160,7 +159,7 @@ def mezclar_audio_radio():
         # Si no hay intro, exportar solo la voz
         if not os.path.exists(ARCHIVO_MUSICA):
             print("Advertencia: No se encontró 'intro.mp3'. Generando solo voz.")
-            voz.export(ARCHIVO_FINAL, format="mp3")
+            voz.export(ARCHIVO_AUDIO_FINAL, format="mp3")
             return
 
         musica_fondo = AudioSegment.from_mp3(ARCHIVO_MUSICA)
@@ -205,16 +204,10 @@ def ejecutar_boletin():
     if os.path.exists(ARCHIVO_VOZ):
         os.remove(ARCHIVO_VOZ)
 
+# ==========================================
+# EJECUCIÓN ÚNICA (Para GitHub Actions)
+# ==========================================
 if __name__ == "__main__":
-    # Ejecutar una vez al abrir
     ejecutar_boletin()
-    
-    # Programar cada 30 minutos
-    schedule.every(30).minutes.do(ejecutar_boletin)
-    
-    print("Sistema de Radio Maitino automatizado en ejecución. Presiona Ctrl+C para detener.")
-    
-    # Bucle infinito para mantener el script vivo
-    while True:
-        schedule.run_pending()
-        time.sleep(1)
+    # No incluir bucles 'while True' ni 'schedule' aquí 
+    # GitHub Actions se encarga de la programación cada 30 min.
