@@ -34,22 +34,19 @@ COORDS = {
 # ==========================================
 
 def obtener_avisos_aemet():
-    """Conecta a AEMET OpenData para descargar los avisos oficiales en tiempo real"""
     url = "https://opendata.aemet.es/opendata/api/avisos/nacional"
     querystring = {"api_key": API_KEY_AEMET}
     headers = {"cache-control": "no-cache"}
     
     try:
-        # Paso 1: Pedir URL de datos a AEMET
         response = requests.get(url, headers=headers, params=querystring, timeout=10)
         if response.status_code == 200:
             datos_url = response.json().get('datos')
-            # Paso 2: Descargar el JSON de avisos reales
             res_datos = requests.get(datos_url, timeout=10)
             avisos = res_datos.json()
             
             if not avisos:
-                return "Sin avisos activados en España", "Sin avisos activados en Alicante"
+                return "Sin avisos activados en el territorio nacional", "Sin avisos activados"
                 
             nacionales = []
             locales_alicante = []
@@ -65,16 +62,16 @@ def obtener_avisos_aemet():
                 if 'Alacant' in provincia or 'Alicante' in provincia:
                     locales_alicante.append(f"Aviso {nivel} por {desc}")
                     
-            txt_nacional = "Hay avisos activos en varias provincias. Consulte AEMET para detalle." if nacionales else "Sin avisos severos activados"
+            txt_nacional = "Avisos activos en varias provincias, consulte fuentes de AEMET para más detalles" if nacionales else "Sin avisos activados a nivel nacional"
             txt_local = ", ".join(locales_alicante) if locales_alicante else "Sin avisos activados"
             
             return txt_nacional, txt_local
-    except Exception as e:
-        print(f"Error conectando a AEMET: {e}")
-    return "Datos de AEMET no disponibles", "Datos de AEMET no disponibles"
+    except Exception:
+        pass
+    return "Datos de avisos nacionales no disponibles", "Datos de avisos locales no disponibles"
 
 def obtener_datos_clima(lat, lon):
-    url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current_weather=true&hourly=temperature_2m,precipitation_probability,windspeed_10m,winddirection_10m,relativehumidity_2m,surface_pressure,precipitation,weathercode,apparent_temperature&timezone=Europe%2FMadrid"
+    url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current_weather=true&hourly=temperature_2m,precipitation_probability,windspeed_10m,winddirection_10m,relativehumidity_2m,surface_pressure,precipitation,weathercode,apparent_temperature,visibility&timezone=Europe%2FMadrid"
     try:
         return requests.get(url, timeout=10).json()
     except:
@@ -96,19 +93,23 @@ def obtener_metar_leal():
 
 def direccion_viento_texto(grados):
     sectores = ["norte", "noreste", "este", "sureste", "sur", "suroeste", "oeste", "noroeste"]
-    indice = round(grados / 45) % 8
-    return sectores[indice]
+    try:
+        indice = round(float(grados) / 45) % 8
+        return sectores[indice]
+    except:
+        return "variable"
 
 def traducir_cielo(codigo):
+    if codigo is None: return "datos no disponibles"
     codigos = {
-        0: "despejados", 1: "principalmente despejados", 2: "parcialmente nublados", 3: "cubiertos",
-        45: "con niebla", 48: "con niebla y escarcha",
-        51: "con llovizna ligera", 53: "con llovizna moderada", 55: "con llovizna densa",
+        0: "despejados", 1: "poco nubosos", 2: "parcialmente nublados", 3: "cubiertos",
+        45: "con niebla", 48: "con bancos de niebla",
+        51: "con llovizna ligera", 53: "con llovizna", 55: "con llovizna densa",
         61: "con lluvia leve", 63: "con lluvia moderada", 65: "con lluvia fuerte",
         71: "con nieve leve", 73: "con nieve moderada", 75: "con nieve fuerte",
-        95: "con tormenta eléctrica"
+        95: "con tormentas"
     }
-    return codigos.get(codigo, "con intervalos nubosos")
+    return codigos.get(int(codigo), "con nubosidad")
 
 def estado_mar_texto(altura):
     try:
@@ -119,10 +120,20 @@ def estado_mar_texto(altura):
         if h < 2.5: return "Fuerte marejada"
         return "Mar gruesa"
     except:
-        return "Dato no disponible"
+        return "Datos de mar no disponibles"
+
+def visibilidad_texto(metros):
+    try:
+        km = float(metros) / 1000
+        if km >= 10: return "Excelente, superior a 10 kilómetros"
+        if km >= 5: return f"Buena, de {km:.0f} kilómetros"
+        if km >= 1: return f"Regular, de {km:.1f} kilómetros"
+        return f"Reducida por debajo de 1 kilómetro"
+    except:
+        return "Datos de visibilidad no disponibles"
 
 # ==========================================
-# GENERACIÓN DE TEXTO CON PLANTILLA EXACTA
+# GENERACIÓN DE TEXTO
 # ==========================================
 
 def generar_texto_boletin():
@@ -137,188 +148,170 @@ def generar_texto_boletin():
     
     dia_semana_str = dias_semana[ahora.weekday()]
     hora_min_str = ahora.strftime('%H y %M')
+    is_dst = time.localtime().tm_isdst
+    utc_offset = 2 if is_dst else 1
     
-    # 1. Obtener Avisos AEMET reales
+    # DATOS REALES AEMET
     aviso_nacional, aviso_local = obtener_avisos_aemet()
 
-    # 2. Llamadas a telemetría Open-Meteo y METAR
+    # DATOS REALES CLIMA POR ZONA
     clima_elche = obtener_datos_clima(COORDS["elche"]["lat"], COORDS["elche"]["lon"])
     clima_madrid = obtener_datos_clima(COORDS["madrid"]["lat"], COORDS["madrid"]["lon"])
     clima_sevilla = obtener_datos_clima(COORDS["sevilla"]["lat"], COORDS["sevilla"]["lon"])
     clima_cantabrico = obtener_datos_clima(COORDS["cantabrico"]["lat"], COORDS["cantabrico"]["lon"])
+    clima_baleares = obtener_datos_clima(COORDS["baleares"]["lat"], COORDS["baleares"]["lon"])
+    clima_alboran = obtener_datos_clima(COORDS["alboran"]["lat"], COORDS["alboran"]["lon"])
+    clima_cadiz = obtener_datos_clima(COORDS["cadiz"]["lat"], COORDS["cadiz"]["lon"])
+    clima_canarias = obtener_datos_clima(COORDS["canarias"]["lat"], COORDS["canarias"]["lon"])
 
+    # DATOS REALES MAR POR ZONA
     mar_elche = obtener_datos_maritimos(COORDS["alicante_costa"]["lat"], COORDS["alicante_costa"]["lon"])
     mar_baleares = obtener_datos_maritimos(COORDS["baleares"]["lat"], COORDS["baleares"]["lon"])
     mar_alboran = obtener_datos_maritimos(COORDS["alboran"]["lat"], COORDS["alboran"]["lon"])
     mar_cantabrico_mar = obtener_datos_maritimos(COORDS["cantabrico"]["lat"], COORDS["cantabrico"]["lon"])
     mar_cadiz = obtener_datos_maritimos(COORDS["cadiz"]["lat"], COORDS["cadiz"]["lon"])
-    mar_canarias = obtener_datos_maritimos(COORDS["canarias"]["lat"], COORDS["canarias"]["lon"])
+    mar_canarias_mar = obtener_datos_maritimos(COORDS["canarias"]["lat"], COORDS["canarias"]["lon"])
 
+    # DATOS METAR
     metar = obtener_metar_leal()
 
-    # --- Procesado de variables para ELCHE ---
     def g_val(d, k, subk, i=None):
         try:
             val = d[k][subk] if i is None else d[k][subk][i]
             return str(val).replace('.', ',')
-        except: return "no disponible"
+        except: return "datos no disponibles"
 
+    def get_cielo(clima_obj):
+        if not clima_obj: return "datos no disponibles"
+        return traducir_cielo(clima_obj['current_weather'].get('weathercode'))
+
+    def get_vis(clima_obj):
+        if not clima_obj: return "datos no disponibles"
+        try:
+            return visibilidad_texto(clima_obj['hourly']['visibility'][0])
+        except:
+            return "datos no disponibles"
+
+    def get_viento_texto(clima_obj):
+        if not clima_obj: return "Datos de viento no disponibles"
+        v_dir = direccion_viento_texto(clima_obj['current_weather'].get('winddirection'))
+        v_vel = str(clima_obj['current_weather'].get('windspeed', '0')).replace('.', ',')
+        return f"Componente {v_dir} a {v_vel} km/h"
+
+    # --- Variables Elche ---
     temp_act = g_val(clima_elche, 'current_weather', 'temperature')
     hum_act = g_val(clima_elche, 'hourly', 'relativehumidity_2m', 0)
     v_dir = direccion_viento_texto(clima_elche['current_weather'].get('winddirection', 0)) if clima_elche else "variable"
     v_vel = g_val(clima_elche, 'current_weather', 'windspeed')
     pres_act = g_val(clima_elche, 'hourly', 'surface_pressure', 0)
     precip_act = g_val(clima_elche, 'hourly', 'precipitation', 0)
-    cielo_act = traducir_cielo(clima_elche['current_weather'].get('weathercode', 0)) if clima_elche else "no disponibles"
+    cielo_act = get_cielo(clima_elche)
+    vis_elche = get_vis(clima_elche)
 
     t_med = g_val(clima_elche, 'hourly', 'temperature_2m', 12)
     p_manana = g_val(clima_elche, 'hourly', 'precipitation_probability', 8)
-    cielo_manana = traducir_cielo(clima_elche['hourly']['weathercode'][8]) if clima_elche else "no disponibles"
-    tendencia_manana = "Aumento progresivo" if float(t_med.replace(',','.')) > float(temp_act.replace(',','.')) else "Descenso progresivo"
+    cielo_manana = traducir_cielo(clima_elche['hourly']['weathercode'][8]) if clima_elche else "datos no disponibles"
     
     t_tarde_min = g_val(clima_elche, 'hourly', 'temperature_2m', 16)
-    t_tarde_max = g_val(clima_elche, 'hourly', 'temperature_2m', 14)
-    sens_tarde = g_val(clima_elche, 'hourly', 'apparent_temperature', 14)
+    t_tarde_max = g_val(clima_elche, 'hourly', 'apparent_temperature', 14)
     v_dir_tarde = direccion_viento_texto(clima_elche['hourly']['winddirection_10m'][16]) if clima_elche else "variable"
     v_vel_tarde = g_val(clima_elche, 'hourly', 'windspeed_10m', 16)
     p_tarde = g_val(clima_elche, 'hourly', 'precipitation_probability', 16)
 
     t_noche = g_val(clima_elche, 'hourly', 'temperature_2m', 22)
-    tendencia_noche = "Descenso térmico" if float(t_noche.replace(',','.')) < float(t_tarde_max.replace(',','.')) else "Aumento térmico"
-    cielo_noche = traducir_cielo(clima_elche['hourly']['weathercode'][22]) if clima_elche else "no disponibles"
+    cielo_noche = traducir_cielo(clima_elche['hourly']['weathercode'][22]) if clima_elche else "datos no disponibles"
     p_noche = g_val(clima_elche, 'hourly', 'precipitation_probability', 22)
 
-    # --- Procesado METAR ---
+    # --- Variables Aviación (METAR REAL SIN INVENTAR TENDENCIAS) ---
     met_viento = f"{metar.get('wdir', 'Variable')} grados a {metar.get('wspd', '0')} nudos" if metar else "Datos no disponibles"
-    met_nubes = f"Base a {metar['clouds'][0].get('base', 'N/A')} pies" if metar and 'clouds' in metar and len(metar['clouds'])>0 else "Sin nubes significativas reportadas"
+    met_nubes = f"Base a {metar['clouds'][0].get('base', 'N/A')} pies" if metar and 'clouds' in metar and len(metar['clouds'])>0 else "Sin nubes reportadas"
     met_pres = str(metar.get('altim', 'Dato no disponible')).replace('.', ',') if metar else "Dato no disponible"
-    met_cond = metar.get('wxString', 'Normales sin meteoros severos') if metar else "Dato no disponible"
+    met_fenomenos = metar.get('wxString', 'Sin fenómenos meteorológicos significativos') if metar else "Datos no disponibles"
 
-    # --- Procesado Marítimo ---
-    def info_mar(mar_obj, nombre):
+    # --- Variables Marítimas ---
+    def info_mar(mar_obj):
         if not mar_obj: return "Dato no disponible", "Dato no disponible"
-        ola = str(mar_obj['current']['wave_height']).replace('.', ',')
-        estado = estado_mar_texto(mar_obj['current']['wave_height'])
+        ola = str(mar_obj['current'].get('wave_height', '0')).replace('.', ',')
+        estado = estado_mar_texto(mar_obj['current'].get('wave_height', 0))
         return ola, estado
 
-    ola_elche, est_elche = info_mar(mar_elche, "Elche")
-    ola_bal, est_bal = info_mar(mar_baleares, "Baleares")
-    ola_alb, est_alb = info_mar(mar_alboran, "Alborán")
-    ola_can, est_can = info_mar(mar_cantabrico_mar, "Cantábrico")
-    ola_cad, est_cad = info_mar(mar_cadiz, "Cádiz")
-    ola_islas, est_islas = info_mar(mar_canarias, "Canarias")
+    ola_elche, est_elche = info_mar(mar_elche)
+    ola_bal, est_bal = info_mar(mar_baleares)
+    ola_alb, est_alb = info_mar(mar_alboran)
+    ola_can, est_can = info_mar(mar_cantabrico_mar)
+    ola_cad, est_cad = info_mar(mar_cadiz)
+    ola_islas, est_islas = info_mar(mar_canarias_mar)
 
-    # PLANTILLA EXACTA RELLENA (SIN INVENTAR NADA)
-    texto = f"""{saludo}. Son las {hora_min_str} horas del {dia_semana_str} , {ahora.day} de {meses[ahora.month - 1]} de {ahora.year}. Transmitimos el boletín meteorológico y marítimo de Radio Maitino, con el estado actual y la predicción terrestre y marítima para las próximas horas.
+    texto = f"""{saludo}. Son las {hora_min_str} horas del {dia_semana_str} , {ahora.day} de {meses[ahora.month - 1]} de {ahora.year}. Transmitimos el boletín meteorológico, aeronáutico y marítimo de Radio Maitino, con el estado actual y la predicción para las próximas horas.
+
 AVISOS Y PREDICCIÓN TERRESTRE
-Avisos Locales en Elche y Baix Vinalopó: {aviso_local} .
-Avisos Nacionales: {aviso_nacional} .
+Avisos Locales en Elche y Baix Vinalopó: {aviso_local}.
+Avisos Nacionales: {aviso_nacional}.
+
 Estado y Predicción Local para las próximas 12 horas.
-Hay avisos activados en las siguientes zonas: {aviso_local} 
-// sin avisos activados
-Estado Actual: {temp_act} °C, humedad del {hum_act} %, viento del {v_dir} a {v_vel}  km/h. Presión de {pres_act} hectopascales. Cielos {cielo_act} . Precipitación: {precip_act} litros por metro cuadrado. 
+Estado Actual: {temp_act} °C, humedad del {hum_act} %, viento del {v_dir} a {v_vel} km/h. Presión de {pres_act} hectopascales. Cielos {cielo_act}. Precipitación registrada: {precip_act} litros por metro cuadrado. 
+
 Predicción Próximas 12 Horas:
-Mañana: Cielos {cielo_manana} . {tendencia_manana} de temperaturas hasta los {t_med} °C al mediodía. Precipitación del {p_manana} %
-Tarde: Máximas térmicas entre los {t_tarde_min} °C y {t_tarde_max} °C, con sensación térmica de {sens_tarde} °C . Entrada de viento del {v_dir_tarde} con rachas de {v_vel_tarde} km/h a partir de las 16  h. Precipitación del {p_tarde} %
-Noche: {tendencia_noche} progresivo hasta los {t_noche} °C con cielos {cielo_noche} . Precipitación del {p_noche} %.
-Estado y Predicción nacional para las próximas 12 horas.
-Hay avisos activados en las siguientes zonas: {aviso_nacional}
-// sin avisos activados
-Situación General: Datos según reporte de la AEMET.
-Norte y Cantábrico: Cielos {traducir_cielo(clima_cantabrico['current_weather'].get('weathercode', 0)) if clima_cantabrico else "no disponibles"} con {g_val(clima_cantabrico, 'current_weather', 'temperature')} grados.
-Centro y Meseta: Cielos {traducir_cielo(clima_madrid['current_weather'].get('weathercode', 0)) if clima_madrid else "no disponibles"} con {g_val(clima_madrid, 'current_weather', 'temperature')} grados.
-Sur: Cielos {traducir_cielo(clima_sevilla['current_weather'].get('weathercode', 0)) if clima_sevilla else "no disponibles"} con {g_val(clima_sevilla, 'current_weather', 'temperature')} grados.
-Levante y Archipiélagos: Datos meteorológicos en rango para la fecha actual.
+Mañana: Cielos {cielo_manana}. Temperaturas en torno a los {t_med} °C al mediodía. Precipitación del {p_manana} %.
+Tarde: Temperaturas entre los {t_tarde_min} °C y {t_tarde_max} °C. Viento de componente {v_dir_tarde} con rachas de {v_vel_tarde} km/h a partir de las 16 horas. Precipitación del {p_tarde} %.
+Noche: Temperaturas de {t_noche} °C con cielos {cielo_noche}. Precipitación del {p_noche} %.
+
+Estado y Predicción nacional actual.
+Norte y Cantábrico: Cielos {get_cielo(clima_cantabrico)} con {g_val(clima_cantabrico, 'current_weather', 'temperature')} grados.
+Centro y Meseta: Cielos {get_cielo(clima_madrid)} con {g_val(clima_madrid, 'current_weather', 'temperature')} grados.
+Sur: Cielos {get_cielo(clima_sevilla)} con {g_val(clima_sevilla, 'current_weather', 'temperature')} grados.
 
 AVISOS Y PREDICCIÓN AERONÁUTICA METAR LEAL PARA EL AEROPUERTO ELCHE - ALICANTE MIGUEL HERNÁNDEZ
-Avisos activados: Datos de aviso aeronáutico sujetos a NOTAM oficial
-Condiciones Actuales: {met_cond}
-Viento en Superficie: {met_viento}
-Techo de Nubes: {met_nubes}
-Presión Atmosférica: {met_pres} hectopascales
-
-Predicción de Aviación de 12 a 24 Horas: Sujeta a reporte TAFOR
-
-Tendencia:  Monitoreo constante por torre de control
+Condiciones Actuales: {met_fenomenos}.
+Viento en Superficie: {met_viento}.
+Techo de Nubes: {met_nubes}.
+Presión Atmosférica: {met_pres} hectopascales.
 
 AVISOS Y PREDICCIÓN MARÍTIMA
-Avisos Locales: {aviso_local}
-Avisos Nacionales:
-Aviso de Fuertes Vientos: {aviso_nacional}.
-Aviso de Vendaval: No verificado en telemetría actual.
-Aviso de Temporal Severo / Fuerza Huracanada): No verificado en telemetría actual.
-Alertas por Tormentas y Fenómenos Severos: Remitimos a portal oficial AEMET.
-Aviso de Mar de Fondo / Oleaje Peligroso: Remitimos a portal oficial AEMET.
-Aviso de Visibilidad Reducida / Niebla Densa: Remitimos a portal oficial AEMET.
 Costa de Alicante y Elche
-Avisos: {aviso_local}
-Costa de Elche:
-Viento: Componente {v_dir} a {v_vel} km/h
-Estado de la Mar: {est_elche} (Ola de {ola_elche} m)
-Temperatura del Agua: Dato no disponible en sensor
-Tiempo: {cielo_act}
-Visibilidad: Sujeta a bruma local
-Costa de Alicante y Mar Interior:
-Viento: Componente {v_dir}
-Estado de la Mar: {est_elche}
-Temperatura del Agua: Dato no disponible en sensor
-Tiempo: {cielo_act}
-Visibilidad: Sujeta a bruma local
-Predicción Nacional de Mareas
+Viento: {get_viento_texto(clima_elche)}.
+Estado de la Mar: {est_elche} con altura de ola de {ola_elche} metros.
+Tiempo: {cielo_act}.
+Visibilidad: {vis_elche}.
+
+Predicción Nacional Marítima
 Mediterráneo (Sector Baleares y Canal de Ibiza):
+Viento: {get_viento_texto(clima_baleares)}.
+Estado de la Mar: {est_bal} con altura de ola de {ola_bal} metros.
+Tiempo: {get_cielo(clima_baleares)}.
+Visibilidad: {get_vis(clima_baleares)}.
 
-Avisos: Consultar AEMET Marítima
-Viento: Datos según boya de zona
-Estado de la Mar: {est_bal} (Ola de {ola_bal} m)
-Tiempo: {traducir_cielo(clima_elche['current_weather'].get('weathercode', 0)) if clima_elche else "no disponible"}
-Visibilidad: Sujeta a condiciones locales
-Tipo: Dato no disponible
-Pleamar: Dato no disponible
-Bajamar: Dato no disponible
 Mediterráneo (Sector Alborán y Golfo de Vera):
+Viento: {get_viento_texto(clima_alboran)}.
+Estado de la Mar: {est_alb} con altura de ola de {ola_alb} metros.
+Tiempo: {get_cielo(clima_alboran)}.
+Visibilidad: {get_vis(clima_alboran)}.
 
-Avisos: Consultar AEMET Marítima
-Viento: Datos según boya de zona
-Estado de la Mar: {est_alb} (Ola de {ola_alb} m)
-Tiempo: {traducir_cielo(clima_sevilla['current_weather'].get('weathercode', 0)) if clima_sevilla else "no disponible"}
-Visibilidad: Sujeta a condiciones locales
-Tipo: Dato no disponible
-Pleamar: Dato no disponible
-Bajamar: Dato no disponible
 Costa Cantábrica y Galicia:
-Avisos: Consultar AEMET Marítima
-Viento: Datos según boya de zona
-Estado de la Mar: {est_can} (Ola de {ola_can} m)
-Tiempo: {traducir_cielo(clima_cantabrico['current_weather'].get('weathercode', 0)) if clima_cantabrico else "no disponible"}
-Visibilidad: Sujeta a condiciones locales
-Tipo: Dato no disponible
-Pleamar: Dato no disponible
-Bajamar: Dato no disponible
+Viento: {get_viento_texto(clima_cantabrico)}.
+Estado de la Mar: {est_can} con altura de ola de {ola_can} metros.
+Tiempo: {get_cielo(clima_cantabrico)}.
+Visibilidad: {get_vis(clima_cantabrico)}.
+
 Atlántico Andaluz (Cádiz y Huelva):
-Avisos: Consultar AEMET Marítima
-Viento: Datos según boya de zona
-Estado de la Mar: {est_cad} (Ola de {ola_cad} m)
-Tiempo: {traducir_cielo(clima_sevilla['current_weather'].get('weathercode', 0)) if clima_sevilla else "no disponible"}
-Visibilidad: Sujeta a condiciones locales
-Tipo: Dato no disponible
-Pleamar: Dato no disponible
-Bajamar: Dato no disponible
+Viento: {get_viento_texto(clima_cadiz)}.
+Estado de la Mar: {est_cad} con altura de ola de {ola_cad} metros.
+Tiempo: {get_cielo(clima_cadiz)}.
+Visibilidad: {get_vis(clima_cadiz)}.
+
 Islas Canarias:
-Avisos: Consultar AEMET Marítima
-Viento: Datos según boya de zona
-Estado de la Mar: {est_islas} (Ola de {ola_islas} m)
-Tiempo: {traducir_cielo(clima_elche['current_weather'].get('weathercode', 0)) if clima_elche else "no disponible"}
-Visibilidad: Sujeta a condiciones locales
-Tipo: Dato no disponible
-Pleamar: Dato no disponible
-Bajamar: Dato no disponible
-Información meteorológica, marítima y aeronáutica elaborada a partir de los datos oficiales de la Agencia Estatal de Meteorología, la NOAA y el Servicio Marino de Puertos del Estado.
-Este ha sido el boletín meteorológico y marítimo de Radio Maitino, emitido a las {hora_min_str} horas, unidad de tiempo coordinado +1. Actualizamos la predicción a primera hora de la mañana. Buena jornada y buena navegación.
+Viento: {get_viento_texto(clima_canarias)}.
+Estado de la Mar: {est_islas} con altura de ola de {ola_islas} metros.
+Tiempo: {get_cielo(clima_canarias)}.
+Visibilidad: {get_vis(clima_canarias)}.
+
+Información meteorológica, marítima y aeronáutica elaborada a partir de los datos telemáticos en tiempo real de la Agencia Estatal de Meteorología, Open-Meteo y AviationWeather.
+Este ha sido el boletín de Radio Maitino, emitido a las {hora_min_str} horas, unidad de tiempo coordinado +{utc_offset}. Actualizamos la predicción en próximos espacios. Buena jornada y buena navegación.
 """
     return texto
 
 # ==========================================
-# PRODUCCIÓN DE AUDIO (SIN CAMBIOS)
+# PRODUCCIÓN DE AUDIO
 # ==========================================
 async def generar_audio_tts(texto):
     print(f"[{datetime.datetime.now()}] Generando locución (Edge TTS)...")
