@@ -76,18 +76,21 @@ def generar_texto_boletin():
     mar_alicante = obtener_datos_maritimos(COORDS["alicante_costa"]["lat"], COORDS["alicante_costa"]["lon"])
     metar = obtener_metar_leal()
 
-    temp_actual = clima_elche['current_weather']['temperature'] if clima_elche else "20"
-    viento_vel = clima_elche['current_weather']['windspeed'] if clima_elche else "10"
+    # Sustituimos el punto por la coma para que el lector no diga "punto" en los decimales
+    temp_actual = str(clima_elche['current_weather']['temperature']).replace('.', ',') if clima_elche else "20"
+    viento_vel = str(clima_elche['current_weather']['windspeed']).replace('.', ',') if clima_elche else "10"
     viento_dir = direccion_viento_texto(clima_elche['current_weather']['winddirection']) if clima_elche else "este"
-    humedad = clima_elche['hourly']['relativehumidity_2m'][0] if clima_elche else "50"
-    presion = clima_elche['hourly']['surface_pressure'][0] if clima_elche else "1013"
-    precip_prob = clima_elche['hourly']['precipitation_probability'][0] if clima_elche else "0"
-    oleaje_alicante = mar_alicante['current']['wave_height'] if mar_alicante else "0.5"
+    humedad = str(clima_elche['hourly']['relativehumidity_2m'][0]).replace('.', ',') if clima_elche else "50"
+    presion = str(clima_elche['hourly']['surface_pressure'][0]).replace('.', ',') if clima_elche else "1013"
+    precip_prob = str(clima_elche['hourly']['precipitation_probability'][0]).replace('.', ',') if clima_elche else "0"
+    oleaje_alicante = str(mar_alicante['current']['wave_height']).replace('.', ',') if mar_alicante else "0,5"
     
-    viento_aero = f"{metar['wdir']} grados a {metar['wspd']} nudos" if metar else "Variable a 5 nudos"
-    presion_aero = metar['altim'] if metar else "1013"
+    viento_aero = f"{metar['wdir']} grados a {metar['wspd']} nudos".replace('.', ',') if metar else "Variable a 5 nudos"
+    presion_aero = str(metar['altim']).replace('.', ',') if metar else "1013"
 
     texto = f"""
+    Do, mi, sol, mi, do agudo...
+    
     BOLETÍN METEOROLÓGICO, MARÍTIMO Y AERONÁUTICO
     {saludo}. Son las {ahora.strftime('%H y %M')} horas del {ahora.day} de {meses[ahora.month - 1]} de {ahora.year}. Transmitimos el boletín meteorológico y marítimo de Radio Maitino, con el estado actual y la predicción terrestre y marítima para las próximas horas.
     
@@ -206,6 +209,8 @@ def generar_texto_boletin():
     
     Información meteorológica, marítima y aeronáutica elaborada a partir de los datos oficiales de la Agencia Estatal de Meteorología, la NOAA y el Servicio Marino de Puertos del Estado.
     Este ha sido el boletín meteorológico y marítimo de Radio Maitino, emitido a las {ahora.strftime('%H y %M')} horas, unidad de tiempo coordinado más 1. Actualizamos la predicción a primera hora de la mañana. Buena jornada y buena navegación.
+    
+    Do, mi, sol, mi, do agudo...
     """
     return texto
 
@@ -215,8 +220,8 @@ def generar_texto_boletin():
 
 async def generar_audio_tts(texto):
     print(f"[{datetime.datetime.now()}] Generando locución (Edge TTS)...")
-    # Voz ralentizada para mayor claridad, acercando la voz a los 4-5 minutos
-    comunicador = edge_tts.Communicate(texto, VOZ_TTS, rate="-15%") 
+    # Voz a velocidad normal (+0%)
+    comunicador = edge_tts.Communicate(texto, VOZ_TTS, rate="+0%") 
     await comunicador.save(ARCHIVO_VOZ)
 
 def mezclar_audio_radio():
