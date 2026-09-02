@@ -141,7 +141,7 @@ def generar_texto_boletin():
     met_nubes = f"Cubierto a {metar['clouds'][0].get('base', '5000')} pies" if metar and 'clouds' in metar and len(metar['clouds'])>0 else "Sin nubes significativas por debajo de 5000 pies"
 
     # Plantilla EXACTA dictada por el usuario
-    texto = f"""Radio Maitino.    
+    texto = f"""Radio Maitino.   
 Bueno{turno[-1]}s {turno}. Son las {hora_min_str} horas del {dia_semana_str} , {ahora.day} de {meses[ahora.month - 1]} de {ahora.year}. Transmitimos el boletín meteorológico, aeronáutico y marítimo de Radio Maitino, con el estado actual y la predicción terrestre, aérea y marítima para las próximas horas.
 AVISOS Y PREDICCIÓN TERRESTRE
 Avisos Locales en Elche y Baix Vinalopó: Sin avisos severos activados en este momento .
@@ -258,33 +258,47 @@ async def generar_audio_tts(texto):
     await comunicador.save(ARCHIVO_VOZ)
 
 def mezclar_audio_radio():
-    print(f"[{datetime.datetime.now()}] Mezclando audio para 7 minutos exactos...")
+    print(f"[{datetime.datetime.now()}] Ensamblando audio: Boletín en silencio + música hasta los 7 minutos...")
     try:
         voz = AudioSegment.from_mp3(ARCHIVO_VOZ)
-
-        if not os.path.exists(ARCHIVO_MUSICA):
-            print("Advertencia: No se encontró 'intro.mp3'. Generando solo voz.")
-            voz.export(ARCHIVO_AUDIO_FINAL, format="mp3")
-            return
-
-        musica_fondo = AudioSegment.from_mp3(ARCHIVO_MUSICA)
-        musica_fondo = musica_fondo - 15 
-
+        
         # === FORZAR EXACTAMENTE 7 MINUTOS (420,000 milisegundos) ===
         duracion_exacta = 7 * 60 * 1000 
 
-        # Repetir la música hasta cubrir los 7 minutos
-        musica_loop = musica_fondo * (duracion_exacta // len(musica_fondo) + 1)
-        musica_loop = musica_loop[:duracion_exacta]
+        if not os.path.exists(ARCHIVO_MUSICA):
+            print("Advertencia: No se encontró 'intro.mp3'. Generando solo voz.")
+            # Si no hay música, rellenamos con silencio si hace falta, o cortamos si se pasa
+            mix_final = voz[:duracion_exacta]
+            # Si dura menos, le añadimos silencio hasta llegar a los 7 minutos
+            if len(mix_final) < duracion_exacta:
+                silencio = AudioSegment.silent(duration=(duracion_exacta - len(mix_final)))
+                mix_final = mix_final + silencio
+            mix_final.export(ARCHIVO_AUDIO_FINAL, format="mp3")
+            return
 
-        # Mezclar: la música empieza sola 2 segundos, luego entra la voz
-        mix_final = musica_loop.overlay(voz, position=2000)
+        musica = AudioSegment.from_mp3(ARCHIVO_MUSICA)
 
-        # Recortar a 7 minutos exactos de forma obligatoria
-        if len(mix_final) > duracion_exacta:
-            mix_final = mix_final[:duracion_exacta]
+        # Si por algún motivo la voz dura más de 7 minutos, cortamos a 7.
+        if len(voz) >= duracion_exacta:
+            mix_final = voz[:duracion_exacta]
+        else:
+            # Calculamos cuánto tiempo queda vacío para rellenarlo con la música
+            tiempo_restante = duracion_exacta - len(voz)
+            
+            # Hacemos que la música se repita lo necesario para cubrir el tiempo restante
+            musica_loop = musica * (tiempo_restante // len(musica) + 1)
+            
+            # Cortamos la música sobrante para que encaje EXACTAMENTE en el hueco
+            musica_necesaria = musica_loop[:tiempo_restante]
+            
+            # (Opcional en radio) Le aplicamos un pequeño fundido de entrada a la música 
+            # de 2 segundos para que no entre agresiva después del boletín
+            musica_necesaria = musica_necesaria.fade_in(2000)
 
-        # Fade out suave de 5 segundos al finalizar los 7 minutos
+            # Concatenamos: Primero la voz sola (silencio de fondo), luego la música rellenando.
+            mix_final = voz + musica_necesaria
+
+        # Por último, aplicamos un fade out de 5 segundos al final de todo el archivo (minuto 7)
         mix_final = mix_final.fade_out(5000)
 
         mix_final.export(ARCHIVO_AUDIO_FINAL, format="mp3", bitrate="192k")
